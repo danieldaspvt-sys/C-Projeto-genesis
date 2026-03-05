@@ -51,21 +51,38 @@ Abra o WhatsApp no celular e escaneie para conectar.
 
 A sessão fica salva localmente (`.wwebjs_auth`), então não precisa escanear toda vez.
 
-## Menu do bot
+## Menu do bot (visual melhorado)
 
-Quando o usuário enviar **"oi"** (ou "menu"), o bot mostra:
+Quando o usuário enviar **"oi"** (ou "menu"), o bot mostra menu com layout caprichado:
 
 1️⃣ Versículo do dia  
 2️⃣ Receber bênção  
 3️⃣ Pedido de oração  
 4️⃣ Contribuir com a obra
 
-## Doações (PushinPay)
+Na opção de contribuição, os valores aparecem **um embaixo do outro**:
 
-- Valores aceitos: `2`, `5`, `10`, `50`
-- O bot cria cobrança Pix e responde com:
-  - Link de pagamento (quando retornado)
-  - PIX copia e cola
+- R$ 2
+- R$ 5
+- R$ 10
+- R$ 50
+
+## Doações (PushinPay) - otimizado
+
+O fluxo de pagamento foi melhorado para reduzir falhas:
+
+- Suporte a múltiplos formatos de payload (`amount`/`value`, reais/centavos).
+- Tentativa com diferentes formatos de autenticação (`Bearer`, `Authorization` puro, `x-api-key`).
+- Tentativa em dois endpoints comuns da PushinPay.
+- Fallback de mensagem com chave PIX manual quando API estiver indisponível.
+
+### Variáveis importantes no `.env`
+
+- `PUSHINPAY_TOKEN`
+- `PUSHINPAY_BASE_API` (padrão: `https://api.pushinpay.com.br`)
+- `CHURCH_PIX_KEY`
+- `WEBHOOK_PORT`
+- `BASE_URL` (para webhook público)
 
 ## Webhook de confirmação
 
@@ -73,7 +90,7 @@ O servidor webhook sobe junto com o bot em:
 
 - `POST /webhook/pushinpay`
 
-Quando o PushinPay confirmar `status = paid`, o bot envia mensagem de agradecimento no WhatsApp.
+Quando a PushinPay enviar status de pago (`paid`, `approved`, `completed`, `success`), o bot envia mensagem de agradecimento no WhatsApp.
 
 > Para receber webhook no PC local, use uma URL pública (ex.: ngrok) e configure `BASE_URL`.
 

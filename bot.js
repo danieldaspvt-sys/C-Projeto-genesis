@@ -10,6 +10,7 @@ const { startWebhookServer } = require('./webhook/webhook');
 const WEBHOOK_PORT = Number(process.env.WEBHOOK_PORT || 3000);
 const BASE_URL = process.env.BASE_URL || `http://localhost:${WEBHOOK_PORT}`;
 const PUSHINPAY_TOKEN = process.env.PUSHINPAY_TOKEN || '';
+const PUSHINPAY_BASE_API = process.env.PUSHINPAY_BASE_API || 'https://api.pushinpay.com.br';
 const CHURCH_PIX_KEY = process.env.CHURCH_PIX_KEY || 'sua-chave-pix-aqui';
 const BIBLE_FILE = process.env.BIBLE_FILE || path.join(__dirname, 'biblia.json');
 
@@ -37,11 +38,47 @@ function getRandomVerse() {
 
 function mainMenu() {
   return [
-    'Escolha uma opção e responda com o número:',
+    '╔════════════════════╗',
+    '✨ *MENU PRINCIPAL* ✨',
+    '╚════════════════════╝',
+    '',
+    'Digite uma opção:',
     '1️⃣ Versículo do dia',
     '2️⃣ Receber bênção',
     '3️⃣ Pedido de oração',
     '4️⃣ Contribuir com a obra',
+  ].join('\n');
+}
+
+function donationMenu() {
+  return [
+    '╔════════════════════╗',
+    '💝 *CONTRIBUIÇÃO* 💝',
+    '╚════════════════════╝',
+    '',
+    'Escolha um valor (um por linha):',
+    '🔹 1) R$ 2',
+    '🔹 2) R$ 5',
+    '🔹 3) R$ 10',
+    '🔹 4) R$ 50',
+    '',
+    'Responda com: *2*, *5*, *10* ou *50*',
+  ].join('\n');
+}
+
+function donationResponseMessage({ amount, paymentUrl, pixCode }) {
+  return [
+    '✅ *Cobrança PIX gerada com sucesso!*',
+    '',
+    `💰 Valor: *R$ ${amount}*`,
+    `🔑 PIX de backup: ${CHURCH_PIX_KEY}`,
+    '',
+    paymentUrl ? `🔗 Link para pagamento:\n${paymentUrl}` : '🔗 Link para pagamento não retornado.',
+    '',
+    '📋 PIX copia e cola:',
+    pixCode,
+    '',
+    'Assim que o pagamento for confirmado, envio seu agradecimento aqui 🙏',
   ].join('\n');
 }
 
@@ -64,24 +101,36 @@ async function handleIncomingMessage(client, msg) {
         chatId,
         baseUrl: BASE_URL,
         token: PUSHINPAY_TOKEN,
+        baseApiUrl: PUSHINPAY_BASE_API,
       });
 
       await client.sendMessage(
         chatId,
+        donationResponseMessage({ amount: text, paymentUrl: charge.paymentUrl, pixCode: charge.pixCode })
+      );
+
+      console.log('[Pagamento] Cobrança gerada:', {
+        chatId,
+        amount: text,
+        endpoint: charge.endpoint,
+        headerMode: charge.headerMode,
+      });
+    } catch (error) {
+      const providerMessage = error?.response?.data ? JSON.stringify(error.response.data) : error.message;
+      console.error('Erro ao criar cobrança PushinPay:', providerMessage);
+
+      await client.sendMessage(
+        chatId,
         [
-          `🙏 Obrigado por contribuir com R$ ${text}.`,
+          '⚠️ Não consegui gerar o pagamento automático agora.',
+          'Você pode contribuir manualmente no PIX abaixo e eu registro depois:',
           '',
-          `Chave PIX (backup): ${CHURCH_PIX_KEY}`,
+          `🔑 Chave PIX: ${CHURCH_PIX_KEY}`,
+          `💰 Valor escolhido: R$ ${text}`,
           '',
-          charge.paymentUrl ? `Link de pagamento: ${charge.paymentUrl}` : 'Link de pagamento não retornado.',
-          '',
-          'PIX copia e cola:',
-          charge.pixCode,
+          'Depois me envie *menu* para continuar 🙏',
         ].join('\n')
       );
-    } catch (error) {
-      await client.sendMessage(chatId, 'Não consegui gerar o pagamento agora. Tente novamente em instantes.');
-      console.error('Erro ao criar cobrança PushinPay:', error.message);
     }
 
     userState.delete(chatId);
@@ -98,7 +147,7 @@ async function handleIncomingMessage(client, msg) {
     const verse = getRandomVerse();
     await client.sendMessage(
       chatId,
-      `📖 Versículo do dia\n\n"${verse.text}"\n— ${verse.reference}\n\nQue Deus abençoe seu dia 🙏`
+      `📖 *Versículo do dia*\n\n"${verse.text}"\n— ${verse.reference}\n\nQue Deus abençoe seu dia 🙏`
     );
     return;
   }
@@ -114,9 +163,9 @@ async function handleIncomingMessage(client, msg) {
     return;
   }
 
-  if (text === '4') {
+  if (text === '4' || text === 'doar' || text === 'doação' || text === 'contribuir') {
     userState.set(chatId, 'awaiting_donation_value');
-    await client.sendMessage(chatId, 'Escolha o valor da contribuição: R$2, R$5, R$10 ou R$50.\nResponda com: 2, 5, 10 ou 50.');
+    await client.sendMessage(chatId, donationMenu());
     return;
   }
 
@@ -160,7 +209,10 @@ async function start() {
   startWebhookServer({
     port: WEBHOOK_PORT,
     onPaymentConfirmed: async ({ chatId, amount }) => {
-      await client.sendMessage(chatId, `✅ Pagamento confirmado de R$ ${amount}. Muito obrigado por contribuir com a obra!`);
+      await client.sendMessage(
+        chatId,
+        `✅ *Pagamento confirmado!*\nRecebemos sua contribuição de *R$ ${amount}*.\nMuito obrigado por ajudar a obra 🙏`
+      );
     },
   });
 

@@ -24,10 +24,13 @@ function startWebhookServer({ port, onPaymentConfirmed }) {
   app.post('/webhook/pushinpay', async (req, res) => {
     try {
       const payload = req.body || {};
-      const status = payload.status;
-      const parsed = parseReference(payload.external_reference);
+      const status = String(payload.status || payload.payment_status || '').toLowerCase();
+      const reference = payload.external_reference || payload.externalReference;
+      const parsed = parseReference(reference);
 
-      if (status === 'paid' && parsed) {
+      const paidStatuses = new Set(['paid', 'approved', 'completed', 'success']);
+
+      if (paidStatuses.has(status) && parsed) {
         await onPaymentConfirmed({
           chatId: parsed.chatId,
           amount: parsed.amount,
