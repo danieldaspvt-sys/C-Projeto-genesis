@@ -2,3 +2,10 @@ node_modules
 .env 
 session 
 database.db 
+
+igreja_bot/subscribers.json
+
+__pycache__/
+igreja_bot/user_state.json
+.wwebjs_auth/
+.wwebjs_cache/
